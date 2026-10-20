@@ -252,7 +252,7 @@ def main():
               f"line moved towards model {same_dir[big].mean():.0%} of the time "
               f"(50% = no signal)")
 
-    print(f"\n=== 4. Paper bets (EV > {MIN_EDGE:.0%}, 1 unit each) ===")
+    print(f"\n=== 4. Simulated strategy check: does a >{MIN_EDGE:.0%} model edge hold up? (1 unit each, no real money) ===")
     for book in ("pinnacle", "bet365", "williamhill"):
         b = pin.dropna(subset=[f"{book}_close1", f"{book}_close2"])
         bets = []

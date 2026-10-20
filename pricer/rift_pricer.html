@@ -398,21 +398,21 @@ const DATA = {"as_of":"2026-10-13 00:26","games":40990,"files":["oe_2023.csv","o
       const sides = [
         { name: A.name, p: ps, o: oa, f: market.p1 },
         { name: B.name, p: 1 - ps, o: ob, f: market.p2 }];
-      sides.forEach(s => { s.ev = s.p * s.o - 1; s.kelly = Math.max((s.p * s.o - 1) / (s.o - 1), 0) / 4; });
-      const best = sides.reduce((x, y) => (y.ev > x.ev ? y : x));
+      sides.forEach(s => { s.diff = s.p - s.f; });
+      const best = sides.reduce((x, y) => (y.diff > x.diff ? y : x));
       const gap = Math.abs(ps - market.p1);
       let head;
-      if (best.ev > 0.03 && gap > 0.12) { call.classList.add("check"); head = `Check before trusting this: the model and the market differ by ${pct(gap, 0)} points. The market usually knows something.`; }
-      else if (best.ev > 0.03) { call.classList.add("value"); head = `Model sees value on ${best.name}: EV ${fmt(best.ev * 100, 1)}%, paper stake ${pct(best.kelly)}% of bankroll`; }
-      else head = "No value at these prices.";
+      if (gap > 0.12) { call.classList.add("check"); head = `Check before trusting this: the model and the market differ by ${pct(gap, 0)} points. The market usually knows something.`; }
+      else if (gap > 0.03) { call.classList.add("value"); head = `The model rates ${best.name} ${pct(best.diff, 0)} points higher than the market.`; }
+      else head = "The model and the market agree closely.";
       let yourLine = "";
       if (your != null) {
-        const ya = your * oa - 1, yb = (1 - your) * ob - 1;
-        yourLine = ya > 0.03 ? `Your number backs ${A.name} (EV ${fmt(ya * 100, 1)}%).` : yb > 0.03 ? `Your number backs ${B.name} (EV ${fmt(yb * 100, 1)}%).` : "Your number finds no bet.";
+        const yd = your - market.p1;
+        yourLine = Math.abs(yd) > 0.03 ? `Your estimate for ${A.name} is ${pct(Math.abs(yd), 0)} points ${yd > 0 ? "above" : "below"} the market.` : "Your estimate is close to the market.";
       }
       call.innerHTML = `<strong>${head}</strong>${yourLine ? `<span>${yourLine}</span>` : ""}
-        <div class="lines"><span class="h">Team</span><span class="h">Model</span><span class="h">Market</span><span class="h k">EV</span>
-        ${sides.map(s => `<span>${s.name}</span><span class="mono num">${pct(s.p)}%</span><span class="mono num">${pct(s.f)}%</span><span class="mono num k">${fmt(s.ev * 100, 1)}%</span>`).join("")}</div>
+        <div class="lines"><span class="h">Team</span><span class="h">Model</span><span class="h">Market</span><span class="h k">Gap</span>
+        ${sides.map(s => `<span>${s.name}</span><span class="mono num">${pct(s.p)}%</span><span class="mono num">${pct(s.f)}%</span><span class="mono num k">${fmt(s.diff * 100, 1)} pts</span>`).join("")}</div>
         <span class="toast">Bookmaker margin ${pct(market.over)}%, removed with the power method.</span>`;
     } else {
       call.innerHTML = `<strong>Enter both odds to compare with the market.</strong><span class="toast">Decimal (2.40), fractional (7/5) or American (+140) all work.</span>`;
@@ -435,7 +435,7 @@ const DATA = {"as_of":"2026-10-13 00:26","games":40990,"files":["oe_2023.csv","o
         bo > 1 ? `form spread s = ${spread}  (${spread === DATA.series.spread_top ? "both top-league teams" : "involves a lower-tier team"})\nz: E[σ(z + s·e)] = p̄ = ${pct(g.p)}%  →  z = ${fmt(RP.latentZ(g.p, spread))}\nP(Bo${bo}) = E[ Σ C(w−1+j, j) · p_e^w · (1−p_e)^j ],  p_e = σ(z + s·e),  w = ${(bo + 1) / 2}\n        = ${pct(ps)}%   (independent games would give ${pct(RP.series(g.p, bo, 0))}%)` : `P = ${pct(ps)}%`],
     ];
     if (market) steps.push(["Market", "Remove the bookmaker's margin, then compare.",
-      `q = 1/${oa.toFixed(2)} + 1/${ob.toFixed(2)} = ${(1 + market.over).toFixed(3)}  (margin ${pct(market.over)}%)\nκ = ${market.k.toFixed(3)}:  q₁^κ + q₂^κ = 1  →  fair P(A) = ${pct(market.p1)}%\nEV(A) = ${pct(ps)}% × ${oa.toFixed(2)} − 1 = ${fmt((ps * oa - 1) * 100, 1)}%\nEV(B) = ${pct(1 - ps)}% × ${ob.toFixed(2)} − 1 = ${fmt(((1 - ps) * ob - 1) * 100, 1)}%\nstake = ¼ · (P·d − 1)/(d − 1)`]);
+      `q = 1/${oa.toFixed(2)} + 1/${ob.toFixed(2)} = ${(1 + market.over).toFixed(3)}  (margin ${pct(market.over)}%)\nκ = ${market.k.toFixed(3)}:  q₁^κ + q₂^κ = 1  →  fair P(A) = ${pct(market.p1)}%\ngap(A) = model ${pct(ps)}% − market ${pct(market.p1)}% = ${fmt((ps - market.p1) * 100, 1)} points`]);
     $("working").innerHTML = steps.map((s, i) => `<div class="step"><span class="n">${i + 1}</span><div><strong>${s[0]}</strong><p>${s[1]}</p><div class="eqn">${s[2].replace(/</g, "&lt;")}</div></div></div>`).join("");
     render.last = { A, B, ps, oa, ob, your };
   }
