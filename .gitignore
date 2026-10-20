@@ -1,0 +1,15 @@
+# Data is downloaded separately (see README) and is not redistributed here
+*.csv
+*.pkl
+*.npy
+*.xlsx
+odds_raw/
+odds_config.json
+ratings.json
+series_s.txt
+# Python / editor
+__pycache__/
+.venv/
+venv/
+.vscode/
+.idea/

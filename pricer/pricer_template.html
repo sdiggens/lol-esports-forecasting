@@ -1,0 +1,393 @@
+<title>Rift Pricer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one quiet column. The matchup and its single number are the page; everything else folds away beneath it. */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --ink: #141820;
+  --muted: #5d6573;
+  --faint: #e3e6eb;
+  --blue: #2b59d1;
+  --red: #c63b3d;
+  --gold: #a7801b;
+  --gold-soft: #f5ecd3;
+  --warn: #b4561c;
+  --warn-soft: #fae7da;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1117; --surface: #161b23; --ink: #e8ebf1; --muted: #9aa3b2; --faint: #262d38;
+    --blue: #7ea2ff; --red: #ff7d7f; --gold: #e3b84f; --gold-soft: #2e2716; --warn: #f2a06a; --warn-soft: #33241a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1117; --surface: #161b23; --ink: #e8ebf1; --muted: #9aa3b2; --faint: #262d38;
+  --blue: #7ea2ff; --red: #ff7d7f; --gold: #e3b84f; --gold-soft: #2e2716; --warn: #f2a06a; --warn-soft: #33241a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; margin: 0; }
+.wrap { max-width: 720px; margin: 0 auto; padding-inline: 18px; padding-block: 28px 64px; display: flex; flex-direction: column; gap: 28px; }
+h1, h2 { font-family: var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h1 { font-size: 1.35rem; font-weight: 700; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); }
+.label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tabs { display: inline-flex; background: var(--faint); border-radius: 999px; padding: 3px; }
+.tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 0.88rem; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+/* matchup */
+.matchup { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: end; }
+.side { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.side.b { text-align: right; }
+.side select { width: 100%; padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--faint); background: var(--surface); font-weight: 600; font-size: 1rem; }
+.side.a select { border-left: 4px solid var(--blue); }
+.side.b select { border-right: 4px solid var(--red); text-align: right; text-align-last: right; }
+.swap { border: 1px solid var(--faint); background: var(--surface); border-radius: 999px; width: 40px; height: 40px; cursor: pointer; display: grid; place-items: center; color: var(--muted); }
+.bo { display: flex; gap: 6px; justify-content: center; }
+.bo button { border: 1px solid var(--faint); background: var(--surface); border-radius: 8px; padding: 6px 14px; cursor: pointer; font-weight: 600; }
+.bo button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+
+/* the number */
+.verdict { display: flex; flex-direction: column; gap: 10px; }
+.big { display: grid; grid-template-columns: 1fr 1fr; align-items: end; }
+.big .pa, .big .pb { font-family: var(--display); font-weight: 700; font-size: clamp(3rem, 14vw, 5.2rem); line-height: 0.95; letter-spacing: -0.03em; }
+.big .pa { color: var(--blue); }
+.big .pb { color: var(--red); text-align: right; }
+.big .pct { font-size: 0.45em; vertical-align: 0.6em; margin-left: 2px; }
+.bar { height: 8px; border-radius: 99px; overflow: hidden; display: flex; background: var(--faint); }
+.bar span { height: 100%; transition: width .35s ease; }
+.bar .ba { background: var(--blue); } .bar .bb { background: var(--red); }
+.sub { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 0.88rem; flex-wrap: wrap; }
+.note { font-size: 0.85rem; padding: 10px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+
+/* scorelines */
+.scores { display: grid; gap: 6px; }
+.scores .row { display: grid; grid-template-columns: 44px 1fr 52px; gap: 10px; align-items: center; font-size: 0.88rem; }
+.scores .track { height: 6px; background: var(--faint); border-radius: 99px; overflow: hidden; }
+.scores .fill { height: 100%; border-radius: 99px; }
+
+/* market */
+.market { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field input { padding: 10px 12px; border-radius: var(--r); border: 1px solid var(--faint); background: var(--surface); font-family: var(--mono); font-size: 1rem; width: 100%; }
+.field.wide { grid-column: 1 / -1; }
+.call { border-radius: var(--r); padding: 14px 16px; background: var(--surface); border: 1px solid var(--faint); display: flex; flex-direction: column; gap: 4px; }
+.call.value { background: var(--gold-soft); border-color: transparent; }
+.call.check { background: var(--warn-soft); border-color: transparent; }
+.call strong { font-family: var(--display); font-size: 1.15rem; font-weight: 700; }
+.call .lines { display: grid; grid-template-columns: 1fr auto auto auto; gap: 2px 14px; font-size: 0.85rem; color: var(--muted); }
+.call .lines .h { font-weight: 600; color: var(--ink); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--ink); background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--faint); }
+.toast { font-size: 0.85rem; color: var(--muted); }
+
+/* working */
+details { border-top: 1px solid var(--faint); padding-top: 14px; }
+summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 8px; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "+"; font-family: var(--mono); color: var(--muted); width: 14px; }
+details[open] summary::before { content: "−"; }
+.working { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+.step > div { min-width: 0; }
+.step .n { font-family: var(--mono); color: var(--muted); font-size: 0.8rem; padding-top: 2px; }
+.step p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+.eqn { font-family: var(--mono); font-size: 0.84rem; background: var(--surface); border: 1px solid var(--faint); border-radius: 8px; padding: 10px 12px; overflow-x: auto; white-space: pre; margin-top: 6px; }
+
+/* rankings */
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--faint); background: var(--surface); padding: 5px 12px; border-radius: 999px; cursor: pointer; font-size: 0.85rem; font-weight: 600; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.rank { display: flex; flex-direction: column; }
+.rank .r { display: grid; grid-template-columns: 28px minmax(0, 1.4fr) 56px minmax(0, 1.6fr) 52px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--faint); font-size: 0.9rem; }
+.rank .r .pos { color: var(--muted); font-family: var(--mono); font-size: 0.8rem; }
+.rank .r .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank .r .lg { font-size: 0.72rem; color: var(--muted); font-weight: 600; letter-spacing: .06em; }
+.rank svg { width: 100%; height: 14px; display: block; }
+.rank .r .pv { text-align: right; font-family: var(--mono); font-size: 0.85rem; }
+.rank .head { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--faint); padding-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 520px) {
+  .matchup { grid-template-columns: 1fr; }
+  .side.b { text-align: left; }
+  .side.b select { text-align: left; text-align-last: left; border-right: 1px solid var(--faint); border-left: 4px solid var(--red); }
+  .swap { justify-self: center; transform: rotate(90deg); }
+  .rank .r { grid-template-columns: 24px minmax(0, 1fr) 48px 52px; }
+  .rank .r .viz, .rank .head .viz { display: none; }
+  .call .lines { grid-template-columns: 1fr auto auto; }
+  .call .lines .k { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Rift Pricer</h1>
+    <div class="tabs" role="tablist" aria-label="View">
+      <button id="tab-price" role="tab" aria-selected="true" aria-controls="view-price">Price a match</button>
+      <button id="tab-rank" role="tab" aria-selected="false" aria-controls="view-rank">Rankings</button>
+    </div>
+  </header>
+
+  <section id="view-price" role="tabpanel" aria-labelledby="tab-price" style="display:flex;flex-direction:column;gap:26px">
+    <div class="matchup">
+      <div class="side a"><label class="label" for="team-a">Team A</label><select id="team-a"></select></div>
+      <button class="swap" id="swap" aria-label="Swap teams" title="Swap teams">⇄</button>
+      <div class="side b"><label class="label" for="team-b">Team B</label><select id="team-b"></select></div>
+    </div>
+    <div class="bo" role="group" aria-label="Series length">
+      <button data-bo="1" aria-pressed="false">Bo1</button>
+      <button data-bo="3" aria-pressed="true">Bo3</button>
+      <button data-bo="5" aria-pressed="false">Bo5</button>
+    </div>
+    <div class="bo" role="group" aria-label="Team A's side" id="side-group">
+      <span class="label" style="align-self:center;margin-right:4px">Team A on</span>
+      <button data-side="avg" aria-pressed="true">Not known</button>
+      <button data-side="blue" aria-pressed="false">Blue</button>
+      <button data-side="red" aria-pressed="false">Red</button>
+    </div>
+
+    <div class="verdict" aria-live="polite">
+      <div class="big"><div class="pa num" id="pa"></div><div class="pb num" id="pb"></div></div>
+      <div class="bar"><span class="ba" id="bar-a"></span><span class="bb" id="bar-b"></span></div>
+      <div class="sub"><span id="sub-a"></span><span id="sub-b"></span></div>
+      <div class="toast" id="side-line" style="text-align:center"></div>
+      <div class="note" id="tier-note" hidden></div>
+    </div>
+
+    <div class="scores" id="scores" aria-label="Likely scorelines"></div>
+
+    <div class="market">
+      <div class="field"><label class="label" for="odds-a">Bookmaker odds, Team A</label><input id="odds-a" inputmode="decimal" placeholder="e.g. 2.40 or 7/5" autocomplete="off"></div>
+      <div class="field"><label class="label" for="odds-b">Bookmaker odds, Team B</label><input id="odds-b" inputmode="decimal" placeholder="e.g. 1.55 or 6/11" autocomplete="off"></div>
+      <div class="field"><label class="label" for="your-p">Your P(A) (optional)</label><input id="your-p" inputmode="decimal" placeholder="e.g. 48.5" autocomplete="off"></div>
+      <div class="field"><label class="label" for="why">Why you differ (optional)</label><input id="why" placeholder="One line" autocomplete="off" style="font-family:var(--body)"></div>
+    </div>
+    <div class="call" id="call"></div>
+    <div class="actions">
+      <button class="btn" id="copy">Copy row for my log</button>
+      <span class="toast" id="toast" role="status"></span>
+    </div>
+
+    <details id="work">
+      <summary>Show the working</summary>
+      <div class="working" id="working"></div>
+    </details>
+  </section>
+
+  <section id="view-rank" role="tabpanel" aria-labelledby="tab-rank" hidden style="flex-direction:column;gap:16px">
+    <div class="filters" id="filters"></div>
+    <div class="rank" id="rank"></div>
+    <p class="toast" style="margin:0">Strength = league level + team rating, on the log-odds scale. The whisker is ±1 standard deviation of the model's uncertainty. "vs avg" is the chance of beating an average top-league team in one game on a neutral side.</p>
+  </section>
+
+  <footer>
+    <span id="asof"></span>
+    <span>Paper trading only: the model alone has not beaten closing prices. Your edge, if any, is in what you add.</span>
+  </footer>
+</div>
+
+<script>
+/*__MATH__*/
+</script>
+<script>
+const DATA = /*__DATA__*/;
+(() => {
+  const M = RP.make(DATA);
+  const $ = id => document.getElementById(id);
+  const T1 = new Set(DATA.tier1);
+  const LEAGUE_ORDER = ["LCK", "LPL", "LEC", "LCS", "LCP", "CBLOL"];
+  const today = new Date(); const asOf = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+  const pct = (x, d = 1) => (100 * x).toFixed(d);
+  const fmt = (x, d = 3) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(d);
+  const strength = t => t.mean + (DATA.leagues[t.league] ? DATA.leagues[t.league].mean : 0);
+
+  // ---------- state ----------
+  const store = { get(k, d) { try { return JSON.parse(localStorage.getItem("rp:" + k)) ?? d; } catch { return d; } },
+                  set(k, v) { try { localStorage.setItem("rp:" + k, JSON.stringify(v)); } catch {} } };
+  const byName = n => DATA.teams.find(t => t.name === n);
+  let bo = store.get("bo", 3);
+  let side = store.get("side", "avg");          // Team A's side in a Bo1: avg | blue | red
+  const defA = (byName("Gen.G") || DATA.teams[0]).id, defB = (byName("Bilibili Gaming") || DATA.teams[1]).id;
+
+  // ---------- selects ----------
+  function fillSelect(sel) {
+    const groups = {};
+    for (const t of DATA.teams) (groups[t.league] ||= []).push(t);
+    const order = [...LEAGUE_ORDER, ...Object.keys(groups).filter(l => !LEAGUE_ORDER.includes(l)).sort()];
+    sel.innerHTML = "";
+    for (const lg of order) {
+      if (!groups[lg]) continue;
+      const og = document.createElement("optgroup");
+      og.label = T1.has(lg) ? lg : lg + " (lower tier)";
+      groups[lg].sort((a, b) => a.name.localeCompare(b.name)).forEach(t => og.append(new Option(t.name, t.id)));
+      sel.append(og);
+    }
+  }
+  fillSelect($("team-a")); fillSelect($("team-b"));
+  const ida = store.get("a", defA), idb = store.get("b", defB);
+  $("team-a").value = M.byId[ida] ? ida : defA; $("team-b").value = M.byId[idb] ? idb : defB;
+  ["odds-a", "odds-b", "your-p", "why"].forEach(id => { $(id).value = store.get(id, ""); });
+
+  // ---------- render ----------
+  function render() {
+    const A = M.byId[$("team-a").value], B = M.byId[$("team-b").value];
+    store.set("a", A.id); store.set("b", B.id); store.set("bo", bo); store.set("side", side);
+    document.querySelectorAll("[data-bo]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.bo === bo)));
+    document.querySelectorAll("[data-side]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.side === side)));
+    $("side-group").style.display = bo === 1 ? "" : "none";
+    const g = M.game(A.id, B.id, asOf);
+    const spread = M.spread(A, B);
+    // Bo1 with a known side uses that side; in a series sides change game to game, so the average is used.
+    const p1 = bo === 1 && side === "blue" ? g.pBlue : bo === 1 && side === "red" ? g.pRed : g.p;
+    const ps = RP.series(p1, bo, spread);
+    $("pa").innerHTML = pct(ps, 0) + '<span class="pct">%</span>';
+    $("pb").innerHTML = pct(1 - ps, 0) + '<span class="pct">%</span>';
+    $("bar-a").style.width = pct(ps, 2) + "%"; $("bar-b").style.width = pct(1 - ps, 2) + "%";
+    $("sub-a").textContent = `${A.name} · fair odds ${(1 / ps).toFixed(2)}`;
+    $("sub-b").textContent = `${B.name} · fair odds ${(1 / (1 - ps)).toFixed(2)}`;
+    const notes = [];
+    if (A.id === B.id) notes.push("Pick two different teams.");
+    if (T1.has(A.league) !== T1.has(B.league)) notes.push("Top-tier v lower-tier: the data barely connects these leagues, so treat this number with real caution.");
+    const stale = [A, B].filter(t => (asOf - new Date(t.last + "T00:00:00Z")) / 864e5 > 60);
+    if (stale.length) notes.push(`${stale.map(t => t.name).join(" and ")} last played over 60 days ago; uncertainty is higher.`);
+    $("side-line").textContent = `One game: ${A.name} wins ${pct(g.pBlue)}% on blue, ${pct(g.pRed)}% on red.` + (bo > 1 ? " A series uses the average, since sides change between games." : "");
+    $("tier-note").hidden = !notes.length; $("tier-note").textContent = notes.join(" ");
+
+    // scorelines
+    const sc = $("scores"); sc.innerHTML = "";
+    if (bo > 1) {
+      const rows = RP.scores(g.p, bo, spread).sort((x, y) => (y.a - y.b) - (x.a - x.b));
+      const mx = Math.max(...rows.map(r => r.p));
+      sc.insertAdjacentHTML("beforeend", `<span class="label">Likely scorelines (A–B)</span>`);
+      for (const r of rows) {
+        const col = r.a > r.b ? "var(--blue)" : "var(--red)";
+        sc.insertAdjacentHTML("beforeend", `<div class="row"><span class="mono num">${r.a}–${r.b}</span><div class="track"><div class="fill" style="width:${(100 * r.p / mx).toFixed(1)}%;background:${col}"></div></div><span class="mono num" style="text-align:right">${pct(r.p)}%</span></div>`);
+      }
+      const full = rows.filter(r => r.a + r.b === bo).reduce((s, r) => s + r.p, 0);
+      sc.insertAdjacentHTML("beforeend", `<span class="toast">Goes the full ${bo} maps: ${pct(full)}% · fair odds ${(1 / full).toFixed(2)}</span>`);
+    }
+
+    // market
+    const oa = RP.parseOdds($("odds-a").value), ob = RP.parseOdds($("odds-b").value);
+    ["odds-a", "odds-b", "your-p", "why"].forEach(id => store.set(id, $(id).value));
+    const yp = parseFloat($("your-p").value); const your = isFinite(yp) ? (yp > 1 ? yp / 100 : yp) : null;
+    const call = $("call"); call.className = "call";
+    let market = null;
+    if (oa && ob) {
+      market = RP.devig(oa, ob);
+      const sides = [
+        { name: A.name, p: ps, o: oa, f: market.p1 },
+        { name: B.name, p: 1 - ps, o: ob, f: market.p2 }];
+      sides.forEach(s => { s.ev = s.p * s.o - 1; s.kelly = Math.max((s.p * s.o - 1) / (s.o - 1), 0) / 4; });
+      const best = sides.reduce((x, y) => (y.ev > x.ev ? y : x));
+      const gap = Math.abs(ps - market.p1);
+      let head;
+      if (best.ev > 0.03 && gap > 0.12) { call.classList.add("check"); head = `Check before trusting this: the model and the market differ by ${pct(gap, 0)} points. The market usually knows something.`; }
+      else if (best.ev > 0.03) { call.classList.add("value"); head = `Model sees value on ${best.name}: EV ${fmt(best.ev * 100, 1)}%, paper stake ${pct(best.kelly)}% of bankroll`; }
+      else head = "No value at these prices.";
+      let yourLine = "";
+      if (your != null) {
+        const ya = your * oa - 1, yb = (1 - your) * ob - 1;
+        yourLine = ya > 0.03 ? `Your number backs ${A.name} (EV ${fmt(ya * 100, 1)}%).` : yb > 0.03 ? `Your number backs ${B.name} (EV ${fmt(yb * 100, 1)}%).` : "Your number finds no bet.";
+      }
+      call.innerHTML = `<strong>${head}</strong>${yourLine ? `<span>${yourLine}</span>` : ""}
+        <div class="lines"><span class="h">Team</span><span class="h">Model</span><span class="h">Market</span><span class="h k">EV</span>
+        ${sides.map(s => `<span>${s.name}</span><span class="mono num">${pct(s.p)}%</span><span class="mono num">${pct(s.f)}%</span><span class="mono num k">${fmt(s.ev * 100, 1)}%</span>`).join("")}</div>
+        <span class="toast">Bookmaker margin ${pct(market.over)}%, removed with the power method.</span>`;
+    } else {
+      call.innerHTML = `<strong>Enter both odds to compare with the market.</strong><span class="toast">Decimal (2.40), fractional (7/5) or American (+140) all work.</span>`;
+    }
+
+    // working
+    const d = g.detail, dr = g.detailRed, P = DATA.params;
+    const lg = d.la ? `\n  + league levels   μ(${A.league}) − μ(${B.league}) = ${fmt(d.la.mean)} − ${fmt(d.lb.mean)}` : `\n  (same league: league level cancels)`;
+    const lgv = d.la ? ` + ${d.la.var.toFixed(3)} + ${d.lb.var.toFixed(3)}` : "";
+    const steps = [
+      ["Beliefs", "Each team is a Normal belief: a best guess and a variance. Variance grows each day a team doesn't play.",
+        `θ(${A.name}) ~ N(${fmt(d.ta.mean)}, ${d.ta.var.toFixed(3)})\nθ(${B.name}) ~ N(${fmt(d.tb.mean)}, ${d.tb.var.toFixed(3)})`],
+      ["Strength gap", "The gap on the log-odds scale, plus blue side's edge when A is on blue.",
+        `m = θA − θB = ${fmt(d.ta.mean)} − ${fmt(d.tb.mean)}${lg}\n  = ${fmt(d.m)}\nm + h = ${fmt(d.m)} + ${P.side_adv} = ${fmt(d.m + P.side_adv)}`],
+      ["Uncertainty", "How unsure the model is about that gap.",
+        `v = ${d.ta.var.toFixed(3)} + ${d.tb.var.toFixed(3)}${lgv} = ${d.v.toFixed(3)}`],
+      ["One game", "Uncertainty pulls the probability towards 50%. The blue-side edge is the same for every team: tested team-by-team side strengths did not hold up from one season to the next.",
+        `P(A on blue) = σ( ${fmt(d.m + P.side_adv)} / √(1 + π·${d.v.toFixed(3)}/8) ) = ${pct(g.pBlue)}%\nP(A on red)  = ${pct(g.pRed)}%\np̄ = ${pct(g.p)}%  (average, used when the side isn't known)${bo === 1 && side !== "avg" ? `\nUsing A on ${side}: ${pct(p1)}%` : ""}`],
+      ["Series", bo > 1 ? "Teams have good and bad days: every game in a series shares one 'form on the day' shock. The single-game chance stays the same; sweeps become more likely and big favourites less certain." : "A Bo1 is just one game.",
+        bo > 1 ? `form spread s = ${spread}  (${spread === DATA.series.spread_top ? "both top-league teams" : "involves a lower-tier team"})\nz: E[σ(z + s·e)] = p̄ = ${pct(g.p)}%  →  z = ${fmt(RP.latentZ(g.p, spread))}\nP(Bo${bo}) = E[ Σ C(w−1+j, j) · p_e^w · (1−p_e)^j ],  p_e = σ(z + s·e),  w = ${(bo + 1) / 2}\n        = ${pct(ps)}%   (independent games would give ${pct(RP.series(g.p, bo, 0))}%)` : `P = ${pct(ps)}%`],
+    ];
+    if (market) steps.push(["Market", "Remove the bookmaker's margin, then compare.",
+      `q = 1/${oa.toFixed(2)} + 1/${ob.toFixed(2)} = ${(1 + market.over).toFixed(3)}  (margin ${pct(market.over)}%)\nκ = ${market.k.toFixed(3)}:  q₁^κ + q₂^κ = 1  →  fair P(A) = ${pct(market.p1)}%\nEV(A) = ${pct(ps)}% × ${oa.toFixed(2)} − 1 = ${fmt((ps * oa - 1) * 100, 1)}%\nEV(B) = ${pct(1 - ps)}% × ${ob.toFixed(2)} − 1 = ${fmt(((1 - ps) * ob - 1) * 100, 1)}%\nstake = ¼ · (P·d − 1)/(d − 1)`]);
+    $("working").innerHTML = steps.map((s, i) => `<div class="step"><span class="n">${i + 1}</span><div><strong>${s[0]}</strong><p>${s[1]}</p><div class="eqn">${s[2].replace(/</g, "&lt;")}</div></div></div>`).join("");
+    render.last = { A, B, ps, oa, ob, your };
+  }
+
+  // ---------- rankings ----------
+  let filt = store.get("filt", "All");
+  function renderRank() {
+    const opts = ["All", ...LEAGUE_ORDER];
+    $("filters").innerHTML = opts.map(o => `<button class="chip" aria-pressed="${o === filt}" data-f="${o}">${o === "All" ? "All top leagues" : o}</button>`).join("");
+    const top = DATA.teams.filter(t => T1.has(t.league) && t.games >= 5);
+    const avg = top.reduce((s, t) => s + strength(t), 0) / top.length;
+    const rows = top.filter(t => filt === "All" || t.league === filt)
+      .map(t => ({ t, s: strength(t), sd: Math.sqrt(M.team(t, asOf).var) })).sort((a, b) => b.s - a.s);
+    const lo = Math.min(...top.map(t => strength(t))) - 0.6, hi = Math.max(...top.map(t => strength(t))) + 0.6;
+    const X = v => (100 * (v - lo) / (hi - lo)).toFixed(2);
+    $("rank").innerHTML = `<div class="r head"><span>#</span><span>Team</span><span>League</span><span class="viz">Strength ± uncertainty</span><span style="text-align:right">vs avg</span></div>` +
+      rows.map((r, i) => {
+        const v = M.team(r.t, asOf).var;
+        const pAvg = RP.sigmoid((r.s - avg) / Math.sqrt(1 + Math.PI * v / 8));
+        return `<div class="r"><span class="pos">${i + 1}</span><span class="nm" title="${r.t.name}">${r.t.name}</span><span class="lg">${r.t.league}</span>
+        <span class="viz"><svg viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true"><rect x="0" y="6.5" width="100" height="1" fill="var(--faint)"/><rect x="${X(r.s - r.sd)}" y="5.5" width="${(X(r.s + r.sd) - X(r.s - r.sd)).toFixed(2)}" height="3" rx="1.5" fill="var(--muted)" opacity=".35"/><circle cx="${X(r.s)}" cy="7" r="3.2" fill="var(--blue)"/></svg></span>
+        <span class="pv">${pct(pAvg, 0)}%</span></div>`;
+      }).join("");
+  }
+
+  // ---------- events ----------
+  ["team-a", "team-b"].forEach(id => $(id).addEventListener("change", render));
+  ["odds-a", "odds-b", "your-p", "why"].forEach(id => $(id).addEventListener("input", render));
+  document.querySelectorAll("[data-bo]").forEach(b => b.addEventListener("click", () => { bo = +b.dataset.bo; render(); }));
+  document.querySelectorAll("[data-side]").forEach(b => b.addEventListener("click", () => { side = b.dataset.side; render(); }));
+  $("swap").addEventListener("click", () => {
+    const a = $("team-a").value; $("team-a").value = $("team-b").value; $("team-b").value = a;
+    side = side === "blue" ? "red" : side === "red" ? "blue" : side;   // the same game, seen from the other team
+    const oa = $("odds-a").value; $("odds-a").value = $("odds-b").value; $("odds-b").value = oa;
+    const yp = parseFloat($("your-p").value); if (isFinite(yp)) $("your-p").value = String(+(yp > 1 ? 100 - yp : 1 - yp).toFixed(1));
+    render();
+  });
+  $("filters").addEventListener("click", e => { const f = e.target.closest("[data-f]"); if (f) { filt = f.dataset.f; store.set("filt", filt); renderRank(); } });
+  function show(view) {
+    const price = view === "price";
+    $("view-price").hidden = !price; $("view-rank").hidden = price;
+    $("view-rank").style.display = price ? "none" : "flex";
+    $("tab-price").setAttribute("aria-selected", String(price)); $("tab-rank").setAttribute("aria-selected", String(!price));
+    store.set("view", view);
+  }
+  $("tab-price").addEventListener("click", () => show("price"));
+  $("tab-rank").addEventListener("click", () => show("rank"));
+  $("copy").addEventListener("click", async () => {
+    const L = render.last; const d = new Date();
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    // Matches the Worlds log columns A–J: Date, Stage, Team A, Team B, Best of, Model P(A), Your P(A), Why, Open odds A, Open odds B
+    const row = [date, "", L.A.name, L.B.name, bo, L.ps.toFixed(4), L.your != null ? L.your.toFixed(4) : "", $("why").value, L.oa ? L.oa.toFixed(2) : "", L.ob ? L.ob.toFixed(2) : ""].join("\t");
+    try { await navigator.clipboard.writeText(row); $("toast").textContent = "Copied. Click the Date cell of an empty row in your log and paste."; }
+    catch { $("toast").textContent = row; }
+  });
+  $("asof").textContent = `Ratings include every game up to ${DATA.as_of} UTC (${DATA.games.toLocaleString()} games). Probabilities account for time since each team last played, as of today.`;
+  render(); renderRank(); show(store.get("view", "price"));
+})();
+</script>
