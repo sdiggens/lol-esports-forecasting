@@ -1,9 +1,9 @@
 """
-Price a match and check it against bookmaker odds.
+Forecast a match and compare it with market prices.
 
   python predict.py rankings                       # current power rankings
   python predict.py match "Gen.G" "Bilibili Gaming" --bo 5 --odds 1.45 2.75
-  python predict.py match T1 G2 --bo 1 --odds 4/9 7/4 --bankroll 500
+  python predict.py match T1 G2 --bo 1 --odds 4/9 7/4
   python predict.py match T1 "Gen.G" --bo 5 --context intl   # same-region teams at Worlds
 
 Odds can be decimal (2.10), fractional (11/10) or American (+110 / -150).
@@ -83,7 +83,7 @@ def cmd_rankings(eng, names, top, all_leagues=False):
     print("\nTier-1 league levels:", ", ".join(f"{l} {v:+.2f}" for l, v in lv))
 
 
-def cmd_match(eng, names, a_q, b_q, bo, odds, bankroll, kelly_frac, min_edge, context):
+def cmd_match(eng, names, a_q, b_q, bo, odds, context):
     a, b = find(names, a_q), find(names, b_q)
     intl = {"intl": True, "domestic": False}.get(context, a[2] != b[2])
     p, pb, pr, lo, hi = game_prob(eng, a, b, intl)
@@ -101,15 +101,10 @@ def cmd_match(eng, names, a_q, b_q, bo, odds, bankroll, kelly_frac, min_edge, co
     d1, d2 = map(parse_odds, odds)
     f1, f2, over = devig(d1, d2)
     print(f"\n  bookmaker: {d1:.2f} / {d2:.2f}  margin {over:.1%}  ->  market fair {f1:.1%} / {f2:.1%}")
-    for name, pm, d, fm in [(a[1], ps, d1, f1), (b[1], 1 - ps, d2, f2)]:
-        ev = pm * d - 1
-        kelly = max((pm * d - 1) / (d - 1), 0) * kelly_frac
-        flag = "VALUE" if ev > min_edge else ""
-        if flag and abs(pm - fm) > 0.12:
-            flag = "CHECK: model and market differ by >12 pts - look for news/roster info before trusting this"
-        print(f"  {name:<24} model {pm:6.1%}  market {fm:6.1%}  EV {ev:+6.1%}  "
-              f"stake {kelly:5.1%} of bankroll" + (f" = £{kelly*bankroll:.2f}" if bankroll else "") + f"  {flag}")
-    print(f"\n  (stakes are {kelly_frac:.0%} Kelly; flagged when EV > {min_edge:.0%})")
+    for name, pm, fm in [(a[1], ps, f1), (b[1], 1 - ps, f2)]:
+        gap = pm - fm
+        note = "  CHECK: model and market differ by >12 pts - the market may know about line-up news" if abs(gap) > 0.12 else ""
+        print(f"  {name:<24} model {pm:6.1%}  market {fm:6.1%}  gap {gap * 100:+5.1f} pts{note}")
 
 
 if __name__ == "__main__":
@@ -119,9 +114,6 @@ if __name__ == "__main__":
     ap.add_argument("--data", nargs="*", default=data_files())
     ap.add_argument("--bo", type=int, default=1)
     ap.add_argument("--odds", nargs=2)
-    ap.add_argument("--bankroll", type=float, default=0)
-    ap.add_argument("--kelly", type=float, default=0.25)
-    ap.add_argument("--min-edge", type=float, default=0.03)
     ap.add_argument("--top", type=int, default=30)
     ap.add_argument("--all-leagues", action="store_true")
     ap.add_argument("--context", choices=["auto", "intl", "domestic"], default="auto",
@@ -132,4 +124,4 @@ if __name__ == "__main__":
     if a.cmd == "rankings":
         cmd_rankings(eng, names, a.top, a.all_leagues)
     else:
-        cmd_match(eng, names, a.teams[0], a.teams[1], a.bo, a.odds, a.bankroll, a.kelly, a.min_edge, a.context)
+        cmd_match(eng, names, a.teams[0], a.teams[1], a.bo, a.odds, a.context)
